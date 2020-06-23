@@ -1,0 +1,82 @@
+---
+title: "Untitled"
+author: "Will Outcault"
+date: "6/22/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Load Data / Libraries
+
+```{r, message = F, warning = F}
+library(tidyverse)
+library(gridExtra)
+library(mice)
+library(forecast)
+raw_excel_df <- readxl::read_excel('project1.xls', col_names = TRUE)
+```
+
+# Summary
+
+```{r}
+summary(raw_excel_df)
+```
+
+# Data Preprocessing
+
+`tsclean`: Uses supsmu for non-seasonal series and a robust STL decomposition for seasonal series. To estimate missing values and outlier replacements, linear interpolation is used on the (possibly seasonally adjusted) series.
+
+```{r, fig.show="hold", out.width="100%", fig.height=2, message=F, warning=F}
+train <- filter(raw_excel_df, SeriesInd < 43022)
+test <- filter(raw_excel_df, SeriesInd >= 43022)
+
+EDA <- function(timeseries,variable){
+  series <- train %>% 
+    filter(group==timeseries) %>% 
+    select(SeriesInd, variable)
+  series <- ts(series[,2])  
+  clean_series <- tsclean(series, replace.missing = TRUE, lambda = "auto")
+  raw_plot <- autoplot(series,main="With Outliers",xlab=NULL,ylab=NULL)
+  clean_plot <- autoplot(clean_series,main="Without Outliers",xlab=NULL,ylab=NULL)
+  grid.arrange(raw_plot, clean_plot, ncol=2, top = paste(timeseries,variable,sep=" "))
+  newlist <- list(clean_series, series)
+  return(newlist)
+}
+
+#test <- EDA("S01","Var01")
+
+
+var_names <- colnames(train[,3:7])
+ser_names <- unique(train$group)
+
+var_index <- c(1,2,2,3,4,5,1,2,2,3,4,5)
+ser_index <- c(3,3,2,2,1,1,6,6,5,5,4,4)
+
+series <- list()
+
+par(mfrow=c(3,4))
+for (n in seq(1,12,1)){
+  series <- append(EDA(ser_names[ser_index[n]],var_names[var_index[n]])[1], series)
+}
+```
+
+# ARIMA Model + ACF/PACF Coefficient Plots
+
+All autocorrelations are within the threshold limits, indicating that the residuals are behaving like white noise. A portmanteau test returns a large p-value, also suggesting that the residuals are white noise.
+
+```{r, fig.show="hold", out.width="50%", fig.height=4}
+series_log <- lapply(series,log)
+
+fitted_series <- lapply(series_log, auto.arima)
+
+#test <- auto.arima(series_log[[1]], approximation =TRUE, stepwise=TRUE, nmodels=30)
+
+par(mfrow = c(6, 2))
+for (i in seq(1,12,1)){
+  checkresiduals(fitted_series[[i]])
+}
+```
+
+
+
