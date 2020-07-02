@@ -1,0 +1,95 @@
+---
+title: "Data 624 Homework 2"
+subtitle: "Market Basked Analysis"
+author: "Group 4"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    highlight: pygments
+    theme: cerulean
+    toc: yes
+    toc_float:
+      collapsed: yes
+---
+
+# HW #2 - market basket analysis / recommender systems
+
+## Introduction
+
+_I am assigning one simple problem on market basket analysis / recommender systems._
+
+_Imagine 10000 receipts sitting on your table. Each receipt represents a transaction with items that were purchased. The receipt is a representation of stuff that went into a customer’s basket – and therefore ‘Market Basket Analysis’._
+
+_That is exactly what the Groceries Data Set contains: a collection of receipts with each line representing 1 receipt and the items purchased. Each line is called a transaction and each column in a row represents an item._
+
+_You assignment is to use R to mine the data for association rules. You should report_
+
+* support
+* confidence 
+* lift 
+* top 10 rules by lift 
+
+_Turn in as you would the other problems from HA and KJ. Due 07/18/20 with the packaged set, HW #2._
+
+## Data Exploration
+
+```{r}
+library(tidyverse)
+library(arules)
+library(kableExtra)
+```
+
+### Data Ingestion
+
+Loading customer receipts where rows are customers and columns are the item number on their receipt.
+
+```{r}
+raw_df <- read.csv("https://raw.githubusercontent.com/willoutcault/DATA624/master/GroceryDataSet.csv", header=F, sep=",")
+```
+
+The goal is to get the dataframe into a user-item matrix. We start by assigning each order to a user. Next we gather items purchased by user and filter out rows with no purchases. We assign binary values to each purchase and spread the items and values into a matrix.
+
+```{r}
+df <- raw_df
+# Assign users to each row
+df$user <- seq(1,length(df$V1),1)
+# Gather rows by User-Item
+df_gath <- df %>% gather(category, item, V1:V32)
+# Filter blank rows
+df_filt <- filter(df_gath, item!="")
+# Assign binary value to purchases
+df_filt$bought <- 1
+df_filt <- df_filt[,c(1,3,4)]
+# Spread DF into matrix
+mat <- spread(df_filt, item, bought, drop = T)
+# Remove user and variable coloumns
+mat <- mat[,2:170]
+# Assign binary value to non-purchases
+mat[is.na(mat)]<- 0
+# View matrix
+data("Adult")
+```
+
+There are 9835 customers that collectively bought 169 different items.
+
+### Best Sellers
+
+```{r}
+rules <- apriori(raw_df, parameter = list(supp = 0.5, conf = 0.9, target = "rules"))
+```
+
+```{r}
+summary(rules)
+```
+
+```{r}
+inspect(head(rules, by = "lift"))
+```
+
+
+
+
+
+
